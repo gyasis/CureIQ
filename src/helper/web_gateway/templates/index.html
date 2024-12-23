@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Image Capture</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tesseract.js -->
+    <script src='https://unpkg.com/tesseract.js@v2.1.0/dist/tesseract.min.js'></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col items-center justify-center p-4">
+    <div class="max-w-md w-full space-y-8 p-4">
+        <h1 class="text-3xl font-bold text-center text-gray-800">Text Scanner</h1>
+        
+        <!-- Camera input for mobile -->
+        <input 
+            type="file" 
+            id="cameraInput" 
+            accept="image/*" 
+            capture="environment"
+            class="hidden">
+
+        <!-- Big center button -->
+        <button 
+            id="openCamera" 
+            class="w-full py-6 px-4 bg-blue-600 text-white text-xl font-semibold rounded-lg shadow-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all">
+            Take Photo
+        </button>
+
+        <!-- Preview container -->
+        <div class="mt-4 space-y-4">
+            <video id="video" 
+                class="w-full rounded-lg shadow-lg hidden" 
+                autoplay 
+                playsinline></video>
+            <canvas id="canvas" 
+                class="w-full rounded-lg shadow-lg hidden"></canvas>
+            <img id="preview" 
+                class="w-full rounded-lg shadow-lg hidden" 
+                alt="Captured photo">
+            
+            <!-- Loading indicator -->
+            <div id="loading" class="hidden">
+                <div class="flex items-center justify-center space-x-2">
+                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                    <span class="text-gray-600">Processing image...</span>
+                </div>
+            </div>
+
+            <!-- Text output -->
+            <div id="textOutput" class="hidden">
+                <h2 class="text-xl font-semibold mb-2">Extracted Text:</h2>
+                <div id="result" class="bg-white p-4 rounded-lg shadow-lg min-h-[100px] whitespace-pre-wrap"></div>
+                <button 
+                    id="copyText" 
+                    class="mt-2 w-full py-2 px-4 bg-gray-600 text-white font-semibold rounded-lg shadow-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-all">
+                    Copy Text
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const openCameraBtn = document.getElementById('openCamera');
+        const cameraInput = document.getElementById('cameraInput');
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const preview = document.getElementById('preview');
+        const loading = document.getElementById('loading');
+        const textOutput = document.getElementById('textOutput');
+        const result = document.getElementById('result');
+        const copyText = document.getElementById('copyText');
+
+        // Updated processImage function
+        async function processImage(imageSource) {
+            try {
+                loading.classList.remove('hidden');
+                textOutput.classList.add('hidden');
+                
+                // Create a temporary canvas for processing
+                const tempCanvas = document.createElement('canvas');
+                const tempCtx = tempCanvas.getContext('2d');
+                
+                // Set dimensions based on source type
+                if (imageSource instanceof HTMLCanvasElement) {
+                    tempCanvas.width = imageSource.width;
+                    tempCanvas.height = imageSource.height;
+                    tempCtx.drawImage(imageSource, 0, 0);
+                } else if (imageSource instanceof HTMLImageElement) {
+                    await new Promise((resolve) => {
+                        if (imageSource.complete) resolve();
+                        else imageSource.onload = resolve;
+                    });
+                    tempCanvas.width = imageSource.naturalWidth;
+                    tempCanvas.height = imageSource.naturalHeight;
+                    tempCtx.drawImage(imageSource, 0, 0);
+                }
+
+                // Convert canvas to blob
+                const blob = await new Promise(resolve => tempCanvas.toBlob(resolve, 'image/jpeg'));
+                
+                // Create FormData and append the image
+                const formData = new FormData();
+                formData.append('file', blob, 'image.jpg');
+
+                // Send to server
+                console.log('Sending image to server...');
+                const response = await fetch('/process-image/', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                console.log('Server response:', data);
+                
+                result.textContent = data.text;
+                textOutput.classList.remove('hidden');
+            } catch (error) {
+                console.error('Error processing image:', error);
+                alert('Error processing image. Please try again.');
+            } finally {
+                loading.classList.add('hidden');
+            }
+        }
+
+        // Copy text functionality
+        copyText.addEventListener('click', () => {
+            navigator.clipboard.writeText(result.textContent)
+                .then(() => {
+                    const originalText = copyText.textContent;
+                    copyText.textContent = 'Copied!';
+                    setTimeout(() => {
+                        copyText.textContent = originalText;
+                    }, 2000);
+                })
+                .catch(err => {
+                    console.error('Failed to copy text:', err);
+                });
+        });
+
+        // Check if running on mobile
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+        if (isMobile) {
+            // Mobile implementation
+            openCameraBtn.addEventListener('click', () => {
+                cameraInput.click();
+            });
+
+            cameraInput.addEventListener('change', (event) => {
+                if (event.target.files && event.target.files[0]) {
+                    const imageFile = event.target.files[0];
+                    preview.src = URL.createObjectURL(imageFile);
+                    preview.classList.remove('hidden');
+                    video.classList.add('hidden');
+                    canvas.classList.add('hidden');
+                    
+                    // Process the image with Tesseract
+                    processImage(preview);
+                }
+            });
+        } else {
+            // Desktop implementation
+            openCameraBtn.addEventListener('click', async () => {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ 
+                        video: { 
+                            facingMode: 'environment'
+                        } 
+                    });
+                    video.srcObject = stream;
+                    video.classList.remove('hidden');
+                    canvas.classList.remove('hidden');
+                    preview.classList.add('hidden');
+                    textOutput.classList.add('hidden');
+                    
+                    // Change button text to "Capture"
+                    openCameraBtn.textContent = 'Capture Photo';
+                    
+                    // Change button behavior to capture
+                    openCameraBtn.onclick = () => {
+                        canvas.width = video.videoWidth;
+                        canvas.height = video.videoHeight;
+                        canvas.getContext('2d').drawImage(video, 0, 0);
+                        
+                        // Stop the camera stream
+                        stream.getTracks().forEach(track => track.stop());
+                        video.classList.add('hidden');
+                        
+                        // Show the captured image
+                        preview.src = canvas.toDataURL('image/jpeg');
+                        preview.classList.remove('hidden');
+                        
+                        // Process the image with Tesseract
+                        processImage(canvas);
+                        
+                        // Reset button
+                        openCameraBtn.textContent = 'Take Another Photo';
+                        openCameraBtn.onclick = () => location.reload();
+                    };
+                } catch (err) {
+                    console.error('Error accessing camera:', err);
+                    alert('Error accessing camera. Please make sure you have granted camera permissions.');
+                }
+            });
+        }
+    </script>
+</body>
+</html> 

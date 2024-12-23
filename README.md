@@ -76,8 +76,6 @@ Sets up the application environment, including logging and database connections,
    cd mcq-system
    ```
 
-
-
 2. Configure your database connection in `main.py` and `collector.py` by setting the `DATABASE_URL`.
 
 ### Using the Collector
@@ -127,7 +125,6 @@ We utilize PostgreSQL as our primary database solution for several compelling re
 
 By leveraging PostgreSQL's powerful features, we ensure that all information is stored securely and can be accessed and manipulated efficiently, supporting both our current and future data management requirements.
 
-
 ## Roadmap
 
 ### Phase 1: Web-Based Frontend Development (Current)
@@ -153,13 +150,13 @@ By leveraging PostgreSQL's powerful features, we ensure that all information is 
 - Add automated question validation
 - Build collaborative editing features
 
-### Phase 4: Multimodal Question Generation
-- Integrate OCR capabilities for image-based content
-- Support question generation from diagrams and charts
-- Add image-based question types
-- Implement multi-format content processing
-- Support PDF and document parsing
-- Create visual question builder interface
+### ~~Phase 4: Multimodal Question Generation~~
+- ~~Integrate OCR capabilities for image-based content~~
+- ~~Support question generation from diagrams and charts~~
+- ~~Add image-based question types~~
+- ~~Implement multi-format content processing~~
+- ~~Support PDF and document parsing~~
+- ~~Create visual question builder interface~~
 
 ### Phase 5: AI Tutoring System
 - Develop specialized tutor agents for different subjects
@@ -171,6 +168,13 @@ By leveraging PostgreSQL's powerful features, we ensure that all information is 
 - Build interactive tutoring interface
 
 Each phase will be developed iteratively with continuous integration of user feedback and performance metrics.
+
+## Recent Updates
+
+### 12/22/2024
+- **Multimodal Input Support**: Added the ability to process images and extract text using the `ImageCaptureGateway`. This allows users to upload images, which are processed to extract text and generate MCQs.
+- **Web Server Option**: Introduced the `--web` command-line option to run a FastAPI server, enabling continuous processing of text and images. This server allows users to upload images or input text directly through a web interface.
+- **ImageProcessor Integration**: Integrated the `ImageProcessor` class to handle image processing tasks, utilizing the `MediaBatchProcessor` for extracting text from images.
 
 ## Contributing
 
